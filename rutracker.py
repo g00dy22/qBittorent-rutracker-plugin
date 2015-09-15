@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """rutracker.org search engine plugin for qBittorrent."""
-#VERSION: 1.01
+#VERSION: 1.11
 #AUTHORS: Skymirrh (skymirrh@skymirrh.net)
 
 import http.cookiejar
@@ -10,9 +10,8 @@ import tempfile
 import os
 import re
 import logging
-
-from novaprinter import prettyPrinter
 from sgmllib3 import SGMLParser
+from novaprinter import prettyPrinter
 
 class rutracker(object):
     """rutracker.org search engine plugin for qBittorrent."""

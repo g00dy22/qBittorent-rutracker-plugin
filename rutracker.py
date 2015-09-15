@@ -3,16 +3,16 @@
 #VERSION: 1.01
 #AUTHORS: Skymirrh (skymirrh@skymirrh.net)
 
-import cookielib
-import urllib
-import urllib2
+import http.cookiejar
+import urllib.parse
+import urllib.request
 import tempfile
 import os
-import sgmllib
 import re
 import logging
 
 from novaprinter import prettyPrinter
+from sgmllib3 import SGMLParser
 
 class rutracker(object):
     """rutracker.org search engine plugin for qBittorrent."""
@@ -30,11 +30,11 @@ class rutracker(object):
     def __init__(self):
         """Initialize rutracker search engine, signing in using given credentials."""
         # Initialize cookie handler.
-        self.cj = cookielib.CookieJar()
-        self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj))
+        self.cj = http.cookiejar.CookieJar()
+        self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.cj))
         # Send POST information and sign in.
         logging.info("Trying to connect using given credentials.")
-        self.opener.open(self.login_url, urllib.urlencode(self.credentials))
+        self.opener.open(self.login_url, urllib.parse.urlencode(self.credentials).encode('utf-8'))
         # Check if connection was successful using cookies.
         if not 'bb_data' in [cookie.name for cookie in self.cj]:
             logging.error("Unable to connect using given credentials.")
@@ -46,10 +46,10 @@ class rutracker(object):
         """Download file at url and write it to a file, print the path to the file and the url."""
         # Make temp file.
         file, path = tempfile.mkstemp()
-        file = os.fdopen(file, "w")
+        file = os.fdopen(file, "wb")
         # Set up fake bb_dl cookie, needed to trick the server into sending the file.
         id = re.search(r'dl\.php\?t=(\d+)', url).group(1)
-        download_cookie = cookielib.Cookie(version=0, name='bb_dl', value=id, port=None, port_specified=False, domain='.rutracker.org', domain_specified=True, domain_initial_dot=True, path='/forum/', path_specified=True, secure=False, expires=None, discard=False, comment=None, comment_url=None, rest={'HttpOnly': None}, rfc2109=False)
+        download_cookie = http.cookiejar.Cookie(version=0, name='bb_dl', value=id, port=None, port_specified=False, domain='.rutracker.org', domain_specified=True, domain_initial_dot=True, path='/forum/', path_specified=True, secure=False, expires=None, discard=False, comment=None, comment_url=None, rest={'HttpOnly': None}, rfc2109=False)
         self.cj.set_cookie(download_cookie)
         # Download torrent file at url.
         data = self.opener.open(url).read()
@@ -57,14 +57,14 @@ class rutracker(object):
         file.write(data)
         file.close()
         # Print file path and url.
-        print path+" "+url
+        print(path+" "+url)
 
-    class SimpleSGMLParser(sgmllib.SGMLParser):
+    class SimpleSGMLParser(SGMLParser):
         """Implement sgmllib.SGMLParser to parse results pages."""
         
         def __init__(self, url, first_page=True):
             """Initialize the parser with url and tell him if he's on the first page of results or not."""
-            sgmllib.SGMLParser.__init__(self)
+            SGMLParser.__init__(self)
             self.download_url = url
             self.first_page = first_page
             self.results = []
@@ -91,7 +91,7 @@ class rutracker(object):
             # We add last item found manually because items are added on new
             # <tr class="tCenter"> and not on </tr> (can't do it without the attribute).
             self.results.append(self.current_item)
-            sgmllib.SGMLParser.close(self)
+            SGMLParser.close(self)
             
         def handle_data(self, data):
             """Retrieve inner text information based on rules defined in do_tag()."""
@@ -170,7 +170,7 @@ class rutracker(object):
         logging.debug("parse_search({}, {}, {})".format(what, start, first_page))
         # Search.
         parser = self.SimpleSGMLParser(self.download_url, first_page)
-        page = self.opener.open('{}?nm={}&start={}'.format(self.search_url, urllib.quote(what), start))
+        page = self.opener.open('{}?nm={}&start={}'.format(self.search_url, urllib.parse.quote(what), start))
         data = page.read().decode('cp1251')
         parser.feed(data)
         parser.close()
@@ -186,7 +186,7 @@ class rutracker(object):
     def search(self, what, cat='all'):
         """Search for what on the search engine."""
         # Search on first page.
-        what = urllib.unquote(what)
+        what = urllib.parse.unquote(what)
         logging.info("Searching for {}...".format(what))
         logging.info("Parsing page 1.")
         (total, pages) = self.parse_search(what)
